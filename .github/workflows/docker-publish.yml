@@ -1,0 +1,95 @@
+name: Publish baotuo-ai-video images
+
+on:
+  push:
+    tags:
+      - '[0-9]*'
+      - 'v[0-9]*'
+
+permissions:
+  contents: read
+
+env:
+  DOCKER_HUB_USERNAME: ${{ vars.DOCKER_HUB_USERNAME }}
+  BACKEND_IMAGE_REPOSITORY: ${{ vars.BACKEND_IMAGE_REPOSITORY }}
+  FRONTEND_IMAGE_REPOSITORY: ${{ vars.FRONTEND_IMAGE_REPOSITORY }}
+
+jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require explicit image repositories and credentials
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          test -n "$DOCKER_HUB_USERNAME" || { echo 'Configure DOCKER_HUB_USERNAME in repository variables'; exit 1; }
+          test -n "$DOCKERHUB_TOKEN" || { echo 'Configure the DOCKERHUB_TOKEN secret'; exit 1; }
+          for repository in "$BACKEND_IMAGE_REPOSITORY" "$FRONTEND_IMAGE_REPOSITORY"; do
+            [[ "$repository" =~ ^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*$ ]] || { echo 'Configure image repositories as namespace/name'; exit 1; }
+          done
+          test "$BACKEND_IMAGE_REPOSITORY" != "$FRONTEND_IMAGE_REPOSITORY" || { echo 'Frontend and backend image repositories must differ'; exit 1; }
+      - name: Check release tag matches application versions
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, xml.etree.ElementTree as ET
+          version = os.environ['RELEASE_TAG'].removeprefix('v')
+          if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', version):
+              raise SystemExit('Invalid release version')
+          with open('ai-fusion-video-web/package.json') as f:
+              frontend = json.load(f)['version']
+          backend = ET.parse('ai-fusion-video/pom.xml').getroot().find('{http://maven.apache.org/POM/4.0.0}version').text
+          if frontend != version or backend != version:
+              raise SystemExit('Tag, frontend version and backend version must match')
+          PY
+
+  quality:
+    needs: validate-release
+    uses: ./.github/workflows/quality.yml
+
+  build-and-push:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: ai-fusion-video/docker-build
+      - name: Prepare tested backend artifact
+        working-directory: ai-fusion-video/docker-build
+        run: |
+          shopt -s nullglob
+          jars=(*.jar)
+          test "${#jars[@]}" -eq 1 || { echo 'Expected exactly one tested backend jar'; exit 1; }
+          mv "${jars[0]}" app.jar
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Publish backend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./ai-fusion-video/docker-build
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.BACKEND_IMAGE_REPOSITORY }}:${{ steps.version.outputs.VERSION }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - name: Publish frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./ai-fusion-video-web
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ steps.version.outputs.VERSION }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend

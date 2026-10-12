@@ -1,0 +1,114 @@
+spring:
+  application:
+    name: baotuo-ai-video
+
+  datasource:
+    hikari:
+      connection-init-sql: "SET time_zone = '${app.mysql.session-time-zone}'"
+
+  threads:
+    virtual:
+      enabled: true
+
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+  profiles:
+    active: local
+
+  # Flyway
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+# MyBatis-Plus
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: true
+      logic-not-delete-value: false
+
+# Swagger
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+server:
+  port: 18080
+  forward-headers-strategy: framework
+
+# 应用配置
+app:
+  release:
+    backend-image-repository: ${BACKEND_IMAGE_REPOSITORY:}
+    frontend-image-repository: ${FRONTEND_IMAGE_REPOSITORY:}
+  # Java 时区使用 IANA Zone ID；MySQL 会话使用无需安装命名时区表的 UTC 偏移。
+  time-zone: ${APP_TIME_ZONE:Asia/Shanghai}
+  mysql:
+    session-time-zone: ${MYSQL_SESSION_TIME_ZONE:+08:00}
+  cors:
+    # 默认全局允许跨域；生产环境可通过 CORS_ALLOWED_ORIGIN_PATTERNS 配置明确来源，多个值使用逗号分隔。
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:*}
+  storage:
+    local-base-path: ./data/media
+  agent-workspace:
+    local-base-path: ${AGENT_WORKSPACE_LOCAL_PATH:./data/agent-workspace}
+
+video:
+  compose:
+    ffmpeg-path: ${VIDEO_COMPOSE_FFMPEG_PATH:ffmpeg}
+    ffprobe-path: ${VIDEO_COMPOSE_FFPROBE_PATH:ffprobe}
+    # 合成后配乐（Sonilo）的调优参数。开关、地址与密钥不在这里：
+    # 在「设置 → AI 模型 → API 配置」新建平台为 sonilo 的配置即开启，禁用或删除即关闭
+    bgm:
+      # 配乐风格提示，可留空（留空按画面内容自动作曲）
+      music-prompt: ${VIDEO_COMPOSE_BGM_MUSIC_PROMPT:}
+      # 与成片原声混音时配乐音轨的音量（0~1）
+      music-volume: ${VIDEO_COMPOSE_BGM_MUSIC_VOLUME:0.7}
+      # 是否同时生成音效音轨
+      sfx-enabled: ${VIDEO_COMPOSE_BGM_SFX_ENABLED:false}
+      poll-interval-seconds: ${VIDEO_COMPOSE_BGM_POLL_INTERVAL_SECONDS:5}
+      timeout-seconds: ${VIDEO_COMPOSE_BGM_TIMEOUT_SECONDS:900}
+
+fusion:
+  agentscope:
+    v2:
+      cache:
+        maximum-size: 64
+        expire-after-access: 30m
+        capacity-wait: 5s
+      state:
+        mode: mysql
+        database-name: "ai_fusion_video"
+        table-name: "afv_agent_state"
+      ingress:
+        max-events: 4096
+        max-bytes: 8388608
+        coalesce-delay: 50ms
+        coalesce-max-chars: 1024
+      execution:
+        owner-lease: 30s
+        run-timeout: 30m
+        confirmation-timeout: 48h
+        max-iters: 999
+      skills:
+        enabled: true
+        fail-fast: true
+        display-names: {}
+        repositories:
+          bundled:
+            location: classpath:agentscope/skills
+            lazy: false
+      mcp:
+        enabled: ${AGENTSCOPE_MCP_ENABLED:false}
+        fail-fast: true
+        servers: {}

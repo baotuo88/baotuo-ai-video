@@ -119,6 +119,7 @@ class PlatformSubAgentRunServiceIT {
                 .thenReturn(Mono.just(true));
         when(supervisor.shutdown(any())).thenReturn(Mono.empty());
         when(signals.publishCancel(anyString())).thenReturn(Mono.empty());
+        when(signals.publishWakeup(anyString(), anyLong())).thenReturn(Mono.empty());
         when(signals.wakeupsWhenSubscribed(anyString()))
                 .thenReturn(Mono.just(Flux.never()));
     }

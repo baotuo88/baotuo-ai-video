@@ -49,11 +49,9 @@ class AgentPersistenceMigrationIT {
         DataSource dataSource = new DriverManagerDataSource(
                 MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
         jdbc = new JdbcTemplate(dataSource);
-        Flyway.configure()
-                .dataSource(dataSource)
-                .target(PREVIOUS_VERSION)
-                .load()
-                .migrate();
+        migrateLegacySchema(dataSource);
+        assertThat(indexColumns("afv_agent_message", "uk_agent_message_conv_order"))
+                .isEmpty();
         seedLegacyMessageOrdering();
         Flyway.configure()
                 .dataSource(dataSource)
@@ -168,11 +166,7 @@ class AgentPersistenceMigrationIT {
                 UNSUPPORTED_MYSQL.getUsername(),
                 UNSUPPORTED_MYSQL.getPassword());
         JdbcTemplate unsupportedJdbc = new JdbcTemplate(unsupportedDataSource);
-        Flyway.configure()
-                .dataSource(unsupportedDataSource)
-                .target(PREVIOUS_VERSION)
-                .load()
-                .migrate();
+        migrateLegacySchema(unsupportedDataSource);
 
         assertThatThrownBy(() -> Flyway.configure()
                         .dataSource(unsupportedDataSource)
@@ -203,6 +197,20 @@ class AgentPersistenceMigrationIT {
                         "afv_agent_message",
                         "run_id"))
                 .isZero();
+    }
+
+    private static void migrateLegacySchema(DataSource dataSource) {
+        // 在测试专用空库中建立版本 0 历史，确保逐条执行 V 迁移而不选用 B 快照。
+        Flyway legacy = Flyway.configure()
+                .dataSource(dataSource)
+                .baselineVersion("0")
+                .target(PREVIOUS_VERSION)
+                .load();
+        legacy.baseline();
+        legacy.migrate();
+        legacy.validate();
+        assertThat(legacy.info().current().getVersion().getVersion())
+                .isEqualTo(PREVIOUS_VERSION);
     }
 
     private static void seedLegacyMessageOrdering() {

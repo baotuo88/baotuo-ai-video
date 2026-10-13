@@ -180,8 +180,9 @@ class PlatformSubAgentRunServiceIT {
                 childCommand(parent, "tool-cancel", "researcher")));
         await(service.cancelChildren(parent.runId()));
 
+        // 子运行归当前实例所有，取消调用会等待本地确认并写入终态。
         assertThat(run(child.childRunId()).getStatus())
-                .isEqualTo(AgentRunStatus.CANCEL_REQUESTED.name());
+                .isEqualTo(AgentRunStatus.CANCELLED.name());
         assertThat(run(parent.runId()).getStatus())
                 .isEqualTo(AgentRunStatus.RUNNING.name());
     }

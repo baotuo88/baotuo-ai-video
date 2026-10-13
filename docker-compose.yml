@@ -1,5 +1,5 @@
 # ============================================
-# 融光 - Docker Compose (拉取预构建镜像)
+# baotuo-ai-video - Docker Compose (拉取预构建镜像)
 # ============================================
 # 部署配置: 基于 .env.example 创建 .env，并只修改 .env
 # 使用方式: docker compose up -d

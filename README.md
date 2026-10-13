@@ -9,6 +9,39 @@ AI 视频创作工作台，基于 [Stonewuu/ai-fusion-video（融光）](https:/
 - 未发送附件按用户和会话保存在当前页面内存中，收起助手或切换屏幕尺寸不会丢失；刷新页面或退出登录会清空附件。文字草稿沿用持久化保存。
 - 图片、视频生成按模型协议接入，结果可用于分镜与视频合成。
 
+## 拉取已发布镜像部署（推荐）
+
+其他机器安装 Docker Engine 和 Docker Compose 后，在终端执行：
+
+```bash
+git clone https://github.com/baotuo88/baotuo-ai-video.git
+cd baotuo-ai-video
+cp .env.example .env
+```
+
+Windows PowerShell 将最后一行替换为 `Copy-Item .env.example .env`。编辑 `.env`，修改 MySQL 和 Redis 密码；镜像地址与版本已填好：
+
+```env
+BACKEND_IMAGE_REPOSITORY=baotuo88/baotuo-ai-video-backend
+FRONTEND_IMAGE_REPOSITORY=baotuo88/baotuo-ai-video-web
+IMAGE_TAG=1.2.1
+```
+
+保存后执行：
+
+```bash
+docker compose config --images
+docker compose pull
+docker compose up -d
+docker compose ps
+```
+
+默认访问 `http://localhost:8080`，远程机器使用 `http://服务器IP:8080`，并允许访问该端口。首次启动需要等待数据库初始化，再按页面向导创建管理员。此方式不需要在部署机器安装 Java、Node.js 或编译源码；保留整个项目目录，Compose 还会挂载 `docker/nginx/default.conf`。
+
+启动异常时查看 `docker compose logs --tail=100 backend frontend nginx`。数据库、媒体与 Agent 工作区使用持久卷；升级时不要删除数据卷。
+
+已有部署不要覆盖 `.env`：拉取代码后按需修改其中的镜像地址和 `IMAGE_TAG`，再执行 `docker compose pull` 和 `docker compose up -d`。部署版本由 `IMAGE_TAG` 决定，单纯 `git pull` 不会切换镜像版本。
+
 ## 从源码部署
 
 需要 Docker Engine 和 Docker Compose。在项目根目录执行：
@@ -29,12 +62,12 @@ Windows 可使用 `Copy-Item .env.example .env`。部署前请修改 `.env` 中�
 在 `.env` 明确配置以下值：
 
 ```env
-BACKEND_IMAGE_REPOSITORY=你的命名空间/baotuo-ai-video
-FRONTEND_IMAGE_REPOSITORY=你的命名空间/baotuo-ai-video-web
-IMAGE_TAG=1.2.0
+BACKEND_IMAGE_REPOSITORY=baotuo88/baotuo-ai-video-backend
+FRONTEND_IMAGE_REPOSITORY=baotuo88/baotuo-ai-video-web
+IMAGE_TAG=1.2.1
 ```
 
-上述仓库和版本必须已实际发布；占位文本不能直接用于部署。配置缺失时 Compose 会明确报错，不再使用上游镜像。
+以上为本项目已发布镜像。若使用其他镜像仓库，请填写实际发布的地址和版本。配置缺失时 Compose 会明确报错，不会使用上游镜像。
 
 ```bash
 docker compose pull

@@ -229,7 +229,7 @@ Docker Compose automatically reads `.env` from the repository root. Each startup
 
 | Deployment mode | Compose files | Variables to review |
 | --- | --- | --- |
-| Default unified gateway | `docker-compose.yml` | Review the MySQL root password and Redis password; application credentials are optional; change `MYSQL_DATABASE`, `APP_PORT`, `JAVA_OPTS`, or the CORS allowlist only when needed; keep `PUBLIC_API_URL` empty |
+| Default unified gateway | `docker-compose.yml` | Review the MySQL root password and Redis password; application credentials are optional; change `MYSQL_DATABASE`, `APP_PORT`, `JAVA_TOOL_OPTIONS`, or the CORS allowlist only when needed; keep `PUBLIC_API_URL` empty |
 | Locally built unified gateway | `docker-compose.build.yml` | Uses the same variables as the default unified gateway, but builds the images locally |
 | Separate frontend and backend | Base Compose file + `docker-compose.separated.yml` | Set `PUBLIC_API_URL`; setting `CORS_ALLOWED_ORIGIN_PATTERNS` is recommended in production; change `FRONTEND_PORT` and `BACKEND_PORT` when needed; `APP_PORT` is not used |
 
@@ -245,7 +245,7 @@ Change the MySQL root password and Redis password before any public deployment. 
 | `BACKEND_PORT` | `18080` | Exposed backend port for separate frontend and backend deployment |
 | `PUBLIC_API_URL` | Empty | Public backend root URL for separate deployment; do not include `/api` |
 | `CORS_ALLOWED_ORIGIN_PATTERNS` | `*` | Browser origins allowed to call the backend; `*` allows all origins. Use explicit production origins and separate multiple values with commas |
-| `JAVA_OPTS` | `-Xms512m -Xmx1024m` | Backend JVM options; normally do not need to be changed |
+| `JAVA_TOOL_OPTIONS` | `-Xms512m -Xmx1024m` | Backend JVM options; normally do not need to be changed |
 | `MYSQL_USERNAME` | Empty | Optional MySQL application account; must not be set to `root`; leaving it empty preserves root access |
 | `MYSQL_PASSWORD` | Empty | Optional MySQL application password; must be configured together with `MYSQL_USERNAME` |
 

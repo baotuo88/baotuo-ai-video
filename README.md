@@ -24,7 +24,7 @@ Windows PowerShell 将最后一行替换为 `Copy-Item .env.example .env`。编�
 ```env
 BACKEND_IMAGE_REPOSITORY=baotuo88/baotuo-ai-video-backend
 FRONTEND_IMAGE_REPOSITORY=baotuo88/baotuo-ai-video-web
-IMAGE_TAG=1.2.1
+IMAGE_TAG=1.2.3
 ```
 
 保存后执行：
@@ -64,7 +64,7 @@ Windows 可使用 `Copy-Item .env.example .env`。部署前请修改 `.env` 中�
 ```env
 BACKEND_IMAGE_REPOSITORY=baotuo88/baotuo-ai-video-backend
 FRONTEND_IMAGE_REPOSITORY=baotuo88/baotuo-ai-video-web
-IMAGE_TAG=1.2.1
+IMAGE_TAG=1.2.3
 ```
 
 以上为本项目已发布镜像。若使用其他镜像仓库，请填写实际发布的地址和版本。配置缺失时 Compose 会明确报错，不会使用上游镜像。

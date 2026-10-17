@@ -66,7 +66,7 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-123456}
       CORS_ALLOWED_ORIGIN_PATTERNS: "${CORS_ALLOWED_ORIGIN_PATTERNS:-*}"
-      JAVA_OPTS: ${JAVA_OPTS:--Xms512m -Xmx1024m}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms512m -Xmx1024m}
     volumes:
       - media_data:/app/data/media
       - agent_workspace_data:/app/data/agent-workspace
@@ -97,8 +97,10 @@ services:
     volumes:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_healthy
 
 volumes:
   mysql_data:

@@ -7,7 +7,7 @@ on:
       - 'v[0-9]*'
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   DOCKER_HUB_USERNAME: ${{ vars.DOCKER_HUB_USERNAME }}
@@ -93,3 +93,8 @@ jobs:
           tags: ${{ env.FRONTEND_IMAGE_REPOSITORY }}:${{ steps.version.outputs.VERSION }}
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: gh release create "v${VERSION}" --verify-tag --title "baotuo-ai-video ${VERSION}" --generate-notes

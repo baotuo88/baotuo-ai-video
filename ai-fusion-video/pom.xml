@@ -11,7 +11,7 @@
 	</parent>
 	<groupId>com.stonewu</groupId>
 	<artifactId>ai-fusion-video</artifactId>
-	<version>1.2.1</version>
+	<version>1.2.3</version>
 	<name>baotuo-ai-video</name>
 	<description>AI-driven video creation platform</description>
 	<url>https://github.com/baotuo88/baotuo-ai-video</url>
@@ -32,7 +32,7 @@
 	<scm>
 		<connection>scm:git:https://github.com/baotuo88/baotuo-ai-video.git</connection>
 		<developerConnection>scm:git:ssh://git@github.com/baotuo88/baotuo-ai-video.git</developerConnection>
-		<tag>v1.2.1</tag>
+		<tag>v1.2.3</tag>
 		<url>https://github.com/baotuo88/baotuo-ai-video</url>
 	</scm>
 	<properties>

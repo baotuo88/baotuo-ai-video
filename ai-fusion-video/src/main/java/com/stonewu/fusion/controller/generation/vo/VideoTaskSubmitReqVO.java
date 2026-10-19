@@ -26,6 +26,9 @@ public class VideoTaskSubmitReqVO {
 
     private String referenceImageUrls;
 
+    @Schema(description = "角色参考子资产 ID 列表 JSON")
+    private String characterAssetItemIds;
+
     private String referenceVideoUrls;
 
     private String referenceAudioUrls;

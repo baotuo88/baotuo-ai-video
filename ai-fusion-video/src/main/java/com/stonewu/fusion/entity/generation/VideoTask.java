@@ -58,6 +58,10 @@ public class VideoTask extends BaseEntity {
     @TableField(typeHandler = JsonbTypeHandler.class, updateStrategy = FieldStrategy.NEVER)
     private String referenceImageUrls;
 
+    /** 角色参考子资产 ID 列表 JSON（List<Long> of AssetItem.id） */
+    @TableField(typeHandler = JsonbTypeHandler.class)
+    private String characterAssetItemIds;
+
     /** 参考视频URL列表 JSON（多模态参考 / 编辑视频 / 延长视频） */
     @TableField(typeHandler = JsonbTypeHandler.class)
     private String referenceVideoUrls;

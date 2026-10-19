@@ -35,6 +35,7 @@ public class NewApiKlingVideoProtocolAdapter implements NewApiVideoProtocolAdapt
 
     private boolean hasImageInput(VideoTask task) {
         return task != null && (StrUtil.isNotBlank(task.getFirstFrameImageUrl())
+                || StrUtil.isNotBlank(task.getLastFrameImageUrl())
                 || StrUtil.isNotBlank(task.getReferenceImageUrls()));
     }
 }

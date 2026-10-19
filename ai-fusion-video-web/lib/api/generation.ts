@@ -86,6 +86,7 @@ export interface VideoGenerationSubmitReq {
   firstFrameImageUrl?: string;
   lastFrameImageUrl?: string;
   referenceImageUrls?: string;
+  characterAssetItemIds?: string;
   referenceVideoUrls?: string;
   referenceAudioUrls?: string;
   ratio?: string;

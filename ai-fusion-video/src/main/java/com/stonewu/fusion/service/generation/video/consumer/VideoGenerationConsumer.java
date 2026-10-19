@@ -6,12 +6,15 @@ import cn.hutool.json.JSONUtil;
 import com.stonewu.fusion.common.BusinessException;
 import com.stonewu.fusion.entity.ai.AiModel;
 import com.stonewu.fusion.entity.ai.ApiConfig;
+import com.stonewu.fusion.entity.asset.Asset;
+import com.stonewu.fusion.entity.asset.AssetItem;
 import com.stonewu.fusion.entity.generation.VideoItem;
 import com.stonewu.fusion.entity.generation.VideoTask;
 import com.stonewu.fusion.infrastructure.queue.RedisTaskQueue;
 import com.stonewu.fusion.service.ai.AiModelService;
 import com.stonewu.fusion.service.ai.ApiConfigService;
 import com.stonewu.fusion.service.ai.comfyui.ComfyUiWorkflowService;
+import com.stonewu.fusion.service.asset.AssetService;
 import com.stonewu.fusion.service.ai.proxy.AiProxySupport;
 import com.stonewu.fusion.service.generation.GenerationModelCapabilityService;
 import com.stonewu.fusion.service.generation.ProviderMediaAuthorization;
@@ -67,6 +70,7 @@ public class VideoGenerationConsumer {
     private final MediaStorageService mediaStorageService;
     private final VideoFrameExtractor videoFrameExtractor;
     private final ComfyUiWorkflowService comfyUiWorkflowService;
+    private final AssetService assetService;
 
     private final AtomicInteger workerThreadCounter = new AtomicInteger(1);
     private final ExecutorService workerExecutor = Executors.newCachedThreadPool(r -> {
@@ -109,7 +113,12 @@ public class VideoGenerationConsumer {
             videoGenerationService.createItem(item);
         }
 
-        taskQueue.push(queueName, taskId);
+        try {
+            taskQueue.push(queueName, taskId);
+        } catch (Exception e) {
+            videoGenerationService.updateStatusIfCurrent(task.getId(), 0, 3, "任务入队失败: " + e.getMessage());
+            throw new BusinessException("视频任务入队失败，请稍后重试");
+        }
         log.info("[VideoConsumer] 任务入队: taskId={}, queue={}, modelId={}", taskId, queueName, task.getModelId());
         return taskId;
     }
@@ -161,7 +170,8 @@ public class VideoGenerationConsumer {
         }
 
         // 超时：标记任务失败
-        videoGenerationService.updateStatus(task.getId(), 3, "同步等待超时");
+        videoGenerationService.updateStatusIfCurrent(task.getId(), 0, 3, "同步等待超时");
+        videoGenerationService.updateStatusIfCurrent(task.getId(), 1, 3, "同步等待超时");
         throw new RuntimeException("生视频任务排队超时（等待 " + (timeoutMs / 1000) + " 秒），当前任务较多，请稍后重试");
     }
 
@@ -251,7 +261,10 @@ public class VideoGenerationConsumer {
         }
 
         refreshQueueMaxConcurrent(queueName, task.getModelId());
-        videoGenerationService.updateStatus(task.getId(), 1, null);
+        if (!videoGenerationService.updateStatusIfCurrent(task.getId(), 0, 1, null)) {
+            log.info("[VideoConsumer] 任务已终止，跳过执行: taskId={}", taskId);
+            return;
+        }
 
         AiModel model = null;
         if (task.getModelId() != null) {
@@ -262,7 +275,7 @@ public class VideoGenerationConsumer {
             }
         }
         if (model == null) {
-            videoGenerationService.updateStatus(task.getId(), 3, "视频模型不存在或已禁用");
+            videoGenerationService.updateStatusIfCurrent(task.getId(), 1, 3, "视频模型不存在或已禁用");
             return;
         }
 
@@ -271,6 +284,7 @@ public class VideoGenerationConsumer {
             generationModelCapabilityService.validateVideoTask(model, task);
             ApiConfig apiConfig = model.getApiConfigId() == null
                     ? null : apiConfigService.getById(model.getApiConfigId());
+            resolveCharacterReferences(task);
             resolveReferenceImageInputs(model, task, apiConfig);
             String platformTaskId = strategy.submit(task);
             log.info("[VideoConsumer] 任务已提交到平台: taskId={}, platformTaskId={}", taskId, platformTaskId);
@@ -281,10 +295,10 @@ public class VideoGenerationConsumer {
                 persistVideoItems(task, apiConfig);
             }
 
-            videoGenerationService.updateStatus(task.getId(), 2, null);
+            videoGenerationService.updateStatusIfCurrent(task.getId(), 1, 2, null);
         } catch (Exception e) {
             log.error("[VideoConsumer] 任务执行失败: taskId={}", taskId, e);
-            videoGenerationService.updateStatus(task.getId(), 3, e.getMessage());
+            videoGenerationService.updateStatusIfCurrent(task.getId(), 1, 3, e.getMessage());
         }
     }
 
@@ -303,6 +317,41 @@ public class VideoGenerationConsumer {
         if (!referenceImages.isEmpty()) {
             task.setReferenceImageUrls(JSONUtil.toJsonStr(referenceImageTransportService.resolveInputs(
                     model, config, referenceImages, apiConfig)));
+        }
+    }
+
+    /** 将分镜/任务绑定的角色子资产转换为平台可用的参考图和固定外观描述。 */
+    private void resolveCharacterReferences(VideoTask task) {
+        if (StrUtil.isBlank(task.getCharacterAssetItemIds())) {
+            return;
+        }
+        List<Long> itemIds = JSONUtil.parseArray(task.getCharacterAssetItemIds()).toList(Long.class);
+        List<String> referenceImages = referenceImageTransportService.parseJsonInputs(
+                task.getReferenceImageUrls(), "referenceImageUrls");
+        StringBuilder characterPrompt = new StringBuilder();
+        for (Long itemId : itemIds) {
+            AssetItem item = assetService.getItemById(itemId);
+            if (item == null || StrUtil.isBlank(item.getImageUrl())) {
+                continue;
+            }
+            if (!referenceImages.contains(item.getImageUrl())) {
+                referenceImages.add(item.getImageUrl());
+            }
+            Asset asset = assetService.getById(item.getAssetId());
+            if (asset != null) {
+                characterPrompt.append("角色「").append(asset.getName()).append("」：")
+                        .append(StrUtil.blankToDefault(asset.getDescription(), ""));
+                if (StrUtil.isNotBlank(asset.getProperties())) {
+                    characterPrompt.append("；角色设定：").append(asset.getProperties());
+                }
+                characterPrompt.append("。保持该角色的脸型、发型、肤色、年龄和服装一致。\n");
+            }
+        }
+        if (!referenceImages.isEmpty()) {
+            task.setReferenceImageUrls(JSONUtil.toJsonStr(referenceImages));
+        }
+        if (characterPrompt.length() > 0) {
+            task.setPrompt(characterPrompt + "\n" + StrUtil.blankToDefault(task.getPrompt(), ""));
         }
     }
 

@@ -1,6 +1,7 @@
 package com.stonewu.fusion.service.generation.video;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.stonewu.fusion.common.PageResult;
 import com.stonewu.fusion.common.BusinessException;
@@ -75,6 +76,18 @@ public class VideoGenerationService {
         if (taskMapper.updateById(task) != 1) {
             throw new BusinessException(409, "视频任务已删除，不能继续执行");
         }
+    }
+
+    /** 仅在任务仍处于指定状态时更新，避免取消/超时后的后台结果覆盖终态。 */
+    @CacheEvict(value = "videoTask", allEntries = true)
+    @Transactional
+    public boolean updateStatusIfCurrent(Long id, Integer expectedStatus, Integer status, String errorMsg) {
+        int updated = taskMapper.update(null, new LambdaUpdateWrapper<VideoTask>()
+                .eq(VideoTask::getId, id)
+                .eq(VideoTask::getStatus, expectedStatus)
+                .set(VideoTask::getStatus, status)
+                .set(VideoTask::getErrorMsg, errorMsg));
+        return updated == 1;
     }
 
     @Caching(evict = {

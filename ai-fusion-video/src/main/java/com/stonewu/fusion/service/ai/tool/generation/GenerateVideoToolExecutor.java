@@ -68,6 +68,7 @@ public class GenerateVideoToolExecutor implements ToolExecutor {
                 - 提示词应详细描述画面内容、运镜方式、环境氛围
                 - 提供 firstFrameImageUrl 可大幅提升画面一致性
                 - 提供 referenceImageUrls 可锁定角色形象、道具外观等（Seedance 2.0 多模态参考特性）
+                - 提供 characterAssetItemIds 可从项目角色资产自动加载参考图和角色设定
                 - 提供 referenceVideoUrls 可参考视频的动作、运镜、特效等
                 - 提供 referenceAudioUrls 可参考音色、音乐旋律、对话内容等
                 - 使用多模态参考时，提示词中用`图片1`/`视频1`/`音频1`等指代对应的参考素材
@@ -117,6 +118,10 @@ public class GenerateVideoToolExecutor implements ToolExecutor {
                         .set("type", "array")
                         .set("items", JSONUtil.createObj().set("type", "string"))
                         .set("description", referenceImageDescription))
+                    .set("characterAssetItemIds", JSONUtil.createObj()
+                        .set("type", "array")
+                        .set("items", JSONUtil.createObj().set("type", "integer"))
+                        .set("description", "角色参考子资产ID列表，用于自动注入角色参考图和角色设定"))
                     .set("referenceVideoUrls", JSONUtil.createObj()
                         .set("type", "array")
                         .set("items", JSONUtil.createObj().set("type", "string"))
@@ -154,6 +159,7 @@ public class GenerateVideoToolExecutor implements ToolExecutor {
 
             String firstFrameImageUrl = params.getStr("firstFrameImageUrl");
             String lastFrameImageUrl = params.getStr("lastFrameImageUrl");
+            String characterAssetItemIds = parseLongArray(params, "characterAssetItemIds");
             String ratio = params.getStr("ratio", "16:9");
             Integer duration = params.getInt("duration", 5);
             Boolean cameraFixed = params.getBool("cameraFixed", false);
@@ -179,7 +185,11 @@ public class GenerateVideoToolExecutor implements ToolExecutor {
             String referenceAudioUrls = parseUrlArray(params, "referenceAudioUrls");
 
             // 确定生成模式
-            String generateMode = StrUtil.isNotBlank(firstFrameImageUrl) ? "image2video" : "text2video";
+            String generateMode = StrUtil.isNotBlank(firstFrameImageUrl)
+                    || StrUtil.isNotBlank(lastFrameImageUrl)
+                    || StrUtil.isNotBlank(referenceImageUrls)
+                    || StrUtil.isNotBlank(characterAssetItemIds)
+                    ? "image2video" : "text2video";
 
             AiModel model = resolvePreferredModel();
 
@@ -190,6 +200,7 @@ public class GenerateVideoToolExecutor implements ToolExecutor {
                     .firstFrameImageUrl(firstFrameImageUrl)
                     .lastFrameImageUrl(lastFrameImageUrl)
                     .referenceImageUrls(referenceImageUrls)
+                    .characterAssetItemIds(characterAssetItemIds)
                     .referenceVideoUrls(referenceVideoUrls)
                     .referenceAudioUrls(referenceAudioUrls)
                     .ratio(ratio)
@@ -290,5 +301,20 @@ public class GenerateVideoToolExecutor implements ToolExecutor {
             }
         }
         return CollUtil.isEmpty(urls) ? null : JSONUtil.toJsonStr(urls);
+    }
+
+    private String parseLongArray(JSONObject params, String fieldName) {
+        cn.hutool.json.JSONArray arr = params.getJSONArray(fieldName);
+        if (arr == null || arr.isEmpty()) {
+            return null;
+        }
+        List<Long> ids = new ArrayList<>();
+        for (int i = 0; i < arr.size(); i++) {
+            Long id = arr.getLong(i);
+            if (id != null && id > 0) {
+                ids.add(id);
+            }
+        }
+        return ids.isEmpty() ? null : JSONUtil.toJsonStr(ids);
     }
 }

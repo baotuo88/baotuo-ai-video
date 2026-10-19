@@ -92,7 +92,12 @@ public class ImageGenerationConsumer {
         }
 
         // 入队
-        taskQueue.push(queueName, taskId);
+        try {
+            taskQueue.push(queueName, taskId);
+        } catch (Exception e) {
+            imageGenerationService.updateStatusIfCurrent(task.getId(), 0, 3, "任务入队失败: " + e.getMessage());
+            throw new BusinessException("图片任务入队失败，请稍后重试");
+        }
         log.info("[ImageConsumer] 任务入队: taskId={}, queue={}, modelId={}", taskId, queueName, task.getModelId());
         return taskId;
     }
@@ -135,7 +140,8 @@ public class ImageGenerationConsumer {
         }
 
         // 超时：标记任务失败，避免 consumer 继续执行无意义的任务
-        imageGenerationService.updateStatus(task.getId(), 3, "同步等待超时");
+        imageGenerationService.updateStatusIfCurrent(task.getId(), 0, 3, "同步等待超时");
+        imageGenerationService.updateStatusIfCurrent(task.getId(), 1, 3, "同步等待超时");
         throw new RuntimeException("生图任务排队超时（等待 " + (timeoutMs / 1000) + " 秒），当前任务较多，请稍后重试");
     }
 
@@ -232,7 +238,10 @@ public class ImageGenerationConsumer {
         refreshQueueMaxConcurrent(queueName, task.getModelId());
 
         // 更新状态为处理中
-        imageGenerationService.updateStatus(task.getId(), 1, null);
+        if (!imageGenerationService.updateStatusIfCurrent(task.getId(), 0, 1, null)) {
+            log.info("[ImageConsumer] 任务已终止，跳过执行: taskId={}", taskId);
+            return;
+        }
 
         ImageGenerationStrategy strategy;
         ApiConfig apiConfig = null;
@@ -250,7 +259,7 @@ public class ImageGenerationConsumer {
             }
         }
         if (model == null || apiConfig == null) {
-            imageGenerationService.updateStatus(task.getId(), 3, "找不到匹配的 API 配置");
+            imageGenerationService.updateStatusIfCurrent(task.getId(), 1, 3, "找不到匹配的 API 配置");
             log.error("[ImageConsumer] 找不到模型或匹配的 API 配置: modelId={}", task.getModelId());
             return;
         }
@@ -280,10 +289,10 @@ public class ImageGenerationConsumer {
             }
 
             // 更新为完成
-            imageGenerationService.updateStatus(task.getId(), 2, null);
+            imageGenerationService.updateStatusIfCurrent(task.getId(), 1, 2, null);
         } catch (Exception e) {
             log.error("[ImageConsumer] 任务执行失败: taskId={}", taskId, e);
-            imageGenerationService.updateStatus(task.getId(), 3, e.getMessage());
+            imageGenerationService.updateStatusIfCurrent(task.getId(), 1, 3, e.getMessage());
         }
     }
 

@@ -25,6 +25,7 @@ import com.stonewu.fusion.service.generation.video.strategy.VideoGenerationStrat
 import com.stonewu.fusion.service.generation.video.strategy.VideoGenerationStrategyRouter;
 import com.stonewu.fusion.service.storage.MediaStorageService;
 import jakarta.annotation.PreDestroy;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
@@ -70,7 +71,8 @@ public class VideoGenerationConsumer {
     private final MediaStorageService mediaStorageService;
     private final VideoFrameExtractor videoFrameExtractor;
     private final ComfyUiWorkflowService comfyUiWorkflowService;
-    private final AssetService assetService;
+    @Resource
+    private AssetService assetService;
 
     private final AtomicInteger workerThreadCounter = new AtomicInteger(1);
     private final ExecutorService workerExecutor = Executors.newCachedThreadPool(r -> {

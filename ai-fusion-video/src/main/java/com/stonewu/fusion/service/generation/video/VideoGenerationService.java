@@ -90,6 +90,14 @@ public class VideoGenerationService {
         return updated == 1;
     }
 
+    @CacheEvict(value = "videoTask", allEntries = true)
+    @Transactional
+    public void updateSuccessCount(Long id, Integer successCount) {
+        taskMapper.update(null, new LambdaUpdateWrapper<VideoTask>()
+                .eq(VideoTask::getId, id)
+                .set(VideoTask::getSuccessCount, successCount));
+    }
+
     @Caching(evict = {
             @CacheEvict(value = "videoTask", allEntries = true),
             @CacheEvict(value = "videoItems", allEntries = true)

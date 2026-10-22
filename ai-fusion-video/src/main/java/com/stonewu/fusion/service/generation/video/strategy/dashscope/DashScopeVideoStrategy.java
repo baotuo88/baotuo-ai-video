@@ -111,7 +111,7 @@ public class DashScopeVideoStrategy implements VideoGenerationStrategy {
                 throw new BusinessException("DashScope 视频任务成功但未返回视频地址: " + platformTaskId);
             }
             task.setSuccessCount(1);
-            videoGenerationService.update(task);
+            videoGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
             return;
         }
 
@@ -144,7 +144,7 @@ public class DashScopeVideoStrategy implements VideoGenerationStrategy {
         }
 
         task.setSuccessCount(successCount);
-        videoGenerationService.update(task);
+        videoGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
         log.info("[DashScope Video] 视频生成完成: taskId={}, successCount={}", task.getTaskId(), successCount);
     }
 

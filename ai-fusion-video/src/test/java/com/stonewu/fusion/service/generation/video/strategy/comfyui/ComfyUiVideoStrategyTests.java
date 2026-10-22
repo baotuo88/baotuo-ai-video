@@ -105,6 +105,6 @@ class ComfyUiVideoStrategyTests {
         assertThat(item.getStatus()).isEqualTo(1);
         assertThat(task.getSuccessCount()).isEqualTo(1);
         verify(videoGenerationService).updateItem(item);
-        verify(videoGenerationService).update(task);
+        verify(videoGenerationService).updateSuccessCount(task.getId(), task.getSuccessCount());
     }
 }

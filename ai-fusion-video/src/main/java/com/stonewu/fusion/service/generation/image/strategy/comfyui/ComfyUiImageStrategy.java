@@ -135,7 +135,7 @@ public class ComfyUiImageStrategy implements ImageGenerationStrategy {
             imageGenerationService.updateItem(item);
         }
         task.setSuccessCount(items.size());
-        imageGenerationService.update(task);
+        imageGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
     }
 
     @Override

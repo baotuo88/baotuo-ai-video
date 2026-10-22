@@ -147,7 +147,7 @@ public class VertexAiImageStrategy implements ImageGenerationStrategy {
         }
 
         task.setSuccessCount(successCount);
-        imageGenerationService.update(task);
+        imageGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
 
         log.info("[VertexAI] 文生图完成: taskId={}", task.getTaskId());
         return task.getTaskId();

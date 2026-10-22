@@ -3,19 +3,19 @@ package com.stonewu.fusion.infrastructure.queue;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
  * 通用 Redis 任务队列（多实例并发安全）
  * <p>
- * 使用 Redis 原子操作确保多实例部署时的并发安全：
- * - LPOP/RPUSH：原子取/放任务
- * - INCR/DECR：原子控制并发计数
+ * 使用 Redis Lua 脚本原子地组合队列弹出与并发许可管理。
  */
 @Component
 @Slf4j
@@ -24,6 +24,24 @@ public class RedisTaskQueue {
     private static final String KEY_PREFIX = "fv:taskqueue:";
     private static final String QUEUE_REGISTRY_KEY = KEY_PREFIX + "registered_queues";
     private static final int DEFAULT_MAX_CONCURRENT = 1;
+    private static final DefaultRedisScript<String> ACQUIRE_AND_POP_SCRIPT = new DefaultRedisScript<>(
+            "local current = tonumber(redis.call('GET', KEYS[2]) or '0') " +
+                    "local maximum = tonumber(redis.call('GET', KEYS[3]) or ARGV[1]) " +
+                    "if current >= maximum then return nil end " +
+                    "local task = redis.call('LPOP', KEYS[1]) " +
+                    "if not task then return nil end " +
+                    "redis.call('INCR', KEYS[2]) " +
+                    "redis.call('EXPIRE', KEYS[2], ARGV[2]) " +
+                    "return task",
+            String.class);
+    private static final DefaultRedisScript<Long> REQUEUE_EXPIRED_SCRIPT = new DefaultRedisScript<>(
+            "local tasks = redis.call('LRANGE', KEYS[1], 0, -1) " +
+                    "for _, task in ipairs(tasks) do if task == ARGV[1] then return 0 end end " +
+                    "local running = redis.call('EXISTS', KEYS[2]) " +
+                    "if running == 1 then return 0 end " +
+                    "redis.call('LPUSH', KEYS[1], ARGV[1]) " +
+                    "return 1",
+            Long.class);
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -46,48 +64,46 @@ public class RedisTaskQueue {
         return removed != null && removed > 0;
     }
 
+    /** 原子地确认任务不在队列且没有有效运行租约后，放回队首。 */
+    public boolean requeueIfLost(String queueName, String taskId) {
+        Long added = stringRedisTemplate.execute(REQUEUE_EXPIRED_SCRIPT,
+                List.of(getQueueKey(queueName), getRunningKey(queueName, taskId)), taskId);
+        if (added != null && added > 0) {
+            registerQueue(queueName);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean isQueued(String queueName, String taskId) {
+        Long index = stringRedisTemplate.opsForList().indexOf(getQueueKey(queueName), taskId);
+        return index != null;
+    }
+
     /**
      * 尝试获取执行许可并取出任务
      */
     public String acquireAndPop(String queueName, int timeoutSeconds) {
-        String concurrentKey = getConcurrentKey(queueName);
         String queueKey = getQueueKey(queueName);
-        int maxConcurrent = getMaxConcurrent(queueName);
-
-        Long current = stringRedisTemplate.opsForValue().increment(concurrentKey, 0);
-        if (current != null && current >= maxConcurrent) {
-            return null;
-        }
-
-        String taskData;
         try {
-            taskData = stringRedisTemplate.opsForList().leftPop(queueKey, timeoutSeconds, TimeUnit.SECONDS);
+            String taskData = stringRedisTemplate.execute(ACQUIRE_AND_POP_SCRIPT,
+                    List.of(queueKey, concurrentKey, getMaxConcurrentKey(queueName)),
+                    String.valueOf(getMaxConcurrent(queueName)),
+                    String.valueOf(TimeUnit.MINUTES.toSeconds(10)));
+            if (taskData == null) {
+                if (timeoutSeconds > 0) {
+                    TimeUnit.SECONDS.sleep(timeoutSeconds);
+                }
+                return null;
+            }
+            Long current = stringRedisTemplate.opsForValue().increment(concurrentKey, 0);
+            log.info("[acquireAndPop] 获取任务，queue:{}, task:{}, concurrent:{}/{}",
+                    queueName, taskData, current, getMaxConcurrent(queueName));
+            return taskData;
         } catch (Exception e) {
             log.error("[acquireAndPop] 取任务异常，queue:{}", queueName, e);
             return null;
         }
-
-        if (taskData == null) {
-            return null;
-        }
-
-        current = stringRedisTemplate.opsForValue().increment(concurrentKey);
-        if (current == null) {
-            stringRedisTemplate.opsForList().leftPush(queueKey, taskData);
-            return null;
-        }
-
-        stringRedisTemplate.expire(concurrentKey, 10, TimeUnit.MINUTES);
-
-        if (current > maxConcurrent) {
-            stringRedisTemplate.opsForValue().decrement(concurrentKey);
-            stringRedisTemplate.opsForList().leftPush(queueKey, taskData);
-            return null;
-        }
-
-        log.info("[acquireAndPop] 获取任务，queue:{}, task:{}, concurrent:{}/{}",
-                queueName, taskData, current, maxConcurrent);
-        return taskData;
     }
 
     /**

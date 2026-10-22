@@ -46,6 +46,9 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -77,6 +80,11 @@ public class VideoGenerationConsumer {
     private final AtomicInteger workerThreadCounter = new AtomicInteger(1);
     private final ExecutorService workerExecutor = Executors.newCachedThreadPool(r -> {
         Thread thread = new Thread(r, "video-generation-worker-" + workerThreadCounter.getAndIncrement());
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final ScheduledExecutorService leaseRenewer = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread thread = new Thread(r, "video-generation-lease-renewer");
         thread.setDaemon(true);
         return thread;
     });
@@ -240,17 +248,28 @@ public class VideoGenerationConsumer {
     }
 
     private void dispatchTask(String queueName, String taskId) {
-        workerExecutor.execute(() -> {
+        Runnable worker = () -> {
+            ScheduledFuture<?> lease = leaseRenewer.scheduleAtFixedRate(
+                    () -> taskQueue.renewLease(queueName, taskId, 60), 10, 10, TimeUnit.SECONDS);
             try {
                 taskQueue.markRunning(queueName, taskId, 60);
                 processTask(queueName, taskId);
             } catch (Exception e) {
                 log.error("[VideoConsumer] 任务处理失败: taskId={}", taskId, e);
             } finally {
+                lease.cancel(false);
                 taskQueue.markComplete(queueName, taskId);
                 taskQueue.release(queueName);
             }
-        });
+        };
+        try {
+            workerExecutor.execute(worker);
+        } catch (RejectedExecutionException e) {
+            taskQueue.release(queueName);
+            if (taskQueue.requeueIfLost(queueName, taskId)) {
+                log.warn("[VideoConsumer] worker 已关闭，任务已放回队列: taskId={}", taskId);
+            }
+        }
     }
 
     private void processTask(String queueName, String taskId) {
@@ -416,6 +435,7 @@ public class VideoGenerationConsumer {
     @PreDestroy
     public void shutdownWorkerExecutor() {
         workerExecutor.shutdownNow();
+        leaseRenewer.shutdownNow();
     }
 
     /**

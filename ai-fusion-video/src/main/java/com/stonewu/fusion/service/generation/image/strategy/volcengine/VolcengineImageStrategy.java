@@ -102,7 +102,7 @@ public class VolcengineImageStrategy implements ImageGenerationStrategy {
         }
 
         task.setSuccessCount(Math.min(urls.size(), items.size()));
-        imageGenerationService.update(task);
+        imageGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
 
         log.info("[Volcengine] 文生图完成: taskId={}, imageCount={}", task.getTaskId(), urls.size());
         return task.getTaskId();

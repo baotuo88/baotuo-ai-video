@@ -276,7 +276,7 @@ public class VolcengineVideoStrategy implements VideoGenerationStrategy {
         }
 
         task.setSuccessCount(1);
-        videoGenerationService.update(task);
+        videoGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
 
         log.info("[Volcengine Video] 视频生成完成: taskId={}, videoUrl={}, lastFrame={}",
                 task.getTaskId(), videoUrl, lastFrameUrl != null ? "有" : "无");

@@ -101,6 +101,6 @@ class ComfyUiImageStrategyTests {
         assertThat(item.getStatus()).isEqualTo(1);
         assertThat(task.getSuccessCount()).isEqualTo(1);
         verify(imageGenerationService).updateItem(item);
-        verify(imageGenerationService).update(task);
+        verify(imageGenerationService).updateSuccessCount(task.getId(), task.getSuccessCount());
     }
 }

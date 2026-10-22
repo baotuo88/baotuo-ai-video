@@ -90,6 +90,14 @@ public class ImageGenerationService {
         return updated == 1;
     }
 
+    @CacheEvict(value = "imageTask", allEntries = true)
+    @Transactional
+    public void updateSuccessCount(Long id, Integer successCount) {
+        taskMapper.update(null, new LambdaUpdateWrapper<ImageTask>()
+                .eq(ImageTask::getId, id)
+                .set(ImageTask::getSuccessCount, successCount));
+    }
+
     @Caching(evict = {
             @CacheEvict(value = "imageTask", allEntries = true),
             @CacheEvict(value = "imageItems", allEntries = true)

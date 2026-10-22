@@ -88,7 +88,7 @@ public class GoogleFlowReverseApiImageStrategy implements ImageGenerationStrateg
         }
 
         task.setSuccessCount(successCount);
-        imageGenerationService.update(task);
+        imageGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
 
         log.info("[GoogleFlowReverseApi][Image] 任务完成: taskId={}, model={}, aspectRatio={}, resolution={}, count={}",
                 task.getTaskId(), request.actualModelCode(), request.aspectRatio(), request.resolution(), successCount);

@@ -99,7 +99,7 @@ public class ComfyUiVideoStrategy implements VideoGenerationStrategy {
             videoGenerationService.updateItem(item);
         }
         task.setSuccessCount(items.size());
-        videoGenerationService.update(task);
+        videoGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
     }
 
     @Override

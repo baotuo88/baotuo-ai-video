@@ -428,7 +428,7 @@ public class DashScopeImageStrategy implements ImageGenerationStrategy {
             imageGenerationService.updateItem(item);
         }
         task.setSuccessCount(successCount);
-        imageGenerationService.update(task);
+        imageGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
     }
 
     private AiModel resolveModel(ImageTask task) {

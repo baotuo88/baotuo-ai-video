@@ -134,7 +134,7 @@ public class NewApiVideoStrategy implements VideoGenerationStrategy {
                 throw new BusinessException("New API 视频任务成功但未返回视频地址: " + platformTaskId);
             }
             task.setSuccessCount(1);
-            videoGenerationService.update(task);
+            videoGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
             return;
         }
 
@@ -176,7 +176,7 @@ public class NewApiVideoStrategy implements VideoGenerationStrategy {
         }
 
         task.setSuccessCount(successCount);
-        videoGenerationService.update(task);
+        videoGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
         log.info("[NewApi Video] 视频生成完成: taskId={}, successCount={}", task.getTaskId(), successCount);
     }
 

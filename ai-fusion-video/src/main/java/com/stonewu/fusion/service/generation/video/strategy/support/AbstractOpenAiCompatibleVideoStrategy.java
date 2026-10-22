@@ -121,7 +121,7 @@ public abstract class AbstractOpenAiCompatibleVideoStrategy implements VideoGene
             OpenAiCompatibleVideoTaskResult result = waitForTask(protocolContext, protocolAdapter, platformTaskId);
             persistResult(protocolContext, protocolAdapter, platformTaskId, result, null, task);
             task.setSuccessCount(1);
-            videoGenerationService.update(task);
+            videoGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
             return;
         }
 
@@ -152,7 +152,7 @@ public abstract class AbstractOpenAiCompatibleVideoStrategy implements VideoGene
         }
 
         task.setSuccessCount(successCount);
-        videoGenerationService.update(task);
+        videoGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
         log.info("[{} Video] 视频生成完成: taskId={}, successCount={}",
                 providerLabel(), task.getTaskId(), successCount);
     }

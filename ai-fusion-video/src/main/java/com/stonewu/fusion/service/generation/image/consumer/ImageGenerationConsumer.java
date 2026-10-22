@@ -30,7 +30,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 生图任务消费器
@@ -59,6 +63,11 @@ public class ImageGenerationConsumer {
     private final AtomicInteger workerThreadCounter = new AtomicInteger(1);
     private final ExecutorService workerExecutor = Executors.newCachedThreadPool(r -> {
         Thread thread = new Thread(r, "image-generation-worker-" + workerThreadCounter.getAndIncrement());
+        thread.setDaemon(true);
+        return thread;
+    });
+    private final ScheduledExecutorService leaseRenewer = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread thread = new Thread(r, "image-generation-lease-renewer");
         thread.setDaemon(true);
         return thread;
     });
@@ -213,17 +222,28 @@ public class ImageGenerationConsumer {
     }
 
     private void dispatchTask(String queueName, String taskId) {
-        workerExecutor.execute(() -> {
+        Runnable worker = () -> {
+            ScheduledFuture<?> lease = leaseRenewer.scheduleAtFixedRate(
+                    () -> taskQueue.renewLease(queueName, taskId, 30), 10, 10, TimeUnit.SECONDS);
             try {
                 taskQueue.markRunning(queueName, taskId, 30);
                 processTask(queueName, taskId);
             } catch (Exception e) {
                 log.error("[ImageConsumer] 任务处理失败: taskId={}", taskId, e);
             } finally {
+                lease.cancel(false);
                 taskQueue.markComplete(queueName, taskId);
                 taskQueue.release(queueName);
             }
-        });
+        };
+        try {
+            workerExecutor.execute(worker);
+        } catch (RejectedExecutionException e) {
+            taskQueue.release(queueName);
+            if (taskQueue.requeueIfLost(queueName, taskId)) {
+                log.warn("[ImageConsumer] worker 已关闭，任务已放回队列: taskId={}", taskId);
+            }
+        }
     }
 
     private void processTask(String queueName, String taskId) {
@@ -355,6 +375,7 @@ public class ImageGenerationConsumer {
     @PreDestroy
     public void shutdownWorkerExecutor() {
         workerExecutor.shutdownNow();
+        leaseRenewer.shutdownNow();
     }
 
     /**

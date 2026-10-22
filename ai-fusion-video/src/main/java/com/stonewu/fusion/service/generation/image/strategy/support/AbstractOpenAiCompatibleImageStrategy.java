@@ -359,7 +359,7 @@ public abstract class AbstractOpenAiCompatibleImageStrategy implements ImageGene
             imageGenerationService.updateItem(item);
         }
         task.setSuccessCount(Math.min(urls.size(), items.size()));
-        imageGenerationService.update(task);
+        imageGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
     }
 
     private AiModel resolveModel(ImageTask task) {

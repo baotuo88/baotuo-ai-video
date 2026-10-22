@@ -422,7 +422,7 @@ class OpenAiAndAgnesImageStrategyTests {
         assertThat(json.getStr("size")).isEqualTo("2K");
         assertThat(json.getStr("ratio")).isEqualTo("16:9");
         verify(imageGenerationService).updateItem(any(ImageItem.class));
-        verify(imageGenerationService).update(task);
+        verify(imageGenerationService).updateSuccessCount(task.getId(), task.getSuccessCount());
     }
 
     @Test
@@ -482,7 +482,7 @@ class OpenAiAndAgnesImageStrategyTests {
         assertThat(requestBody.get()).contains("\"size\":\"1024x1024\"");
         verify(mediaStorageService).storeBytes(imageBytes, "images", "png");
         verify(imageGenerationService).updateItem(any(ImageItem.class));
-        verify(imageGenerationService).update(task);
+        verify(imageGenerationService).updateSuccessCount(task.getId(), task.getSuccessCount());
     }
 
     @Test

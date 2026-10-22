@@ -192,15 +192,12 @@ export default function GenerationWorkbench({ mode }: GenerationWorkbenchProps) 
               const previousItems = entry.items.filter(
                 (item): item is ImageGenerationItem => "imageUrl" in item,
               );
-              const items =
-                task.status === 0
-                  ? previousItems
-                  : await generationApi
-                      .listImageItems(task.id)
-                      .catch((error) => {
-                        toastApiError(error, "刷新图片生成结果失败");
-                        return previousItems;
-                      });
+              const items = await generationApi
+                .listImageItems(task.id)
+                .catch((error) => {
+                  toastApiError(error, "刷新图片生成结果失败");
+                  return previousItems;
+                });
               return {
                 id: task.id,
                 entry: { task, items } satisfies GenerationHistoryEntry,
@@ -211,15 +208,12 @@ export default function GenerationWorkbench({ mode }: GenerationWorkbenchProps) 
             const previousItems = entry.items.filter(
               (item): item is VideoGenerationItem => "videoUrl" in item,
             );
-            const items =
-              task.status === 0
-                ? previousItems
-                : await generationApi
-                    .listVideoItems(task.id)
-                    .catch((error) => {
-                      toastApiError(error, "刷新视频生成结果失败");
-                      return previousItems;
-                    });
+            const items = await generationApi
+              .listVideoItems(task.id)
+              .catch((error) => {
+                toastApiError(error, "刷新视频生成结果失败");
+                return previousItems;
+              });
             return {
               id: task.id,
               entry: { task, items } satisfies GenerationHistoryEntry,

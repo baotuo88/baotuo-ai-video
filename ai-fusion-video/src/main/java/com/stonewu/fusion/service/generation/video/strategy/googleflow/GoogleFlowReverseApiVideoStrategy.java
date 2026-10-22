@@ -74,7 +74,7 @@ public class GoogleFlowReverseApiVideoStrategy implements VideoGenerationStrateg
         }
 
         task.setSuccessCount(successCount);
-        videoGenerationService.update(task);
+        videoGenerationService.updateSuccessCount(task.getId(), task.getSuccessCount());
 
         log.info("[GoogleFlowReverseApi][Video] 任务完成: taskId={}, model={}, aspectRatio={}, resolution={}, count={}, imageCount={}",
                 task.getTaskId(), request.actualModelCode(), request.aspectRatio(), request.resolution(), successCount, request.imageCount());

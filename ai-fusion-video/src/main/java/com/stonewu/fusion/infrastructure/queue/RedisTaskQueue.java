@@ -85,6 +85,7 @@ public class RedisTaskQueue {
      */
     public String acquireAndPop(String queueName, int timeoutSeconds) {
         String queueKey = getQueueKey(queueName);
+        String concurrentKey = getConcurrentKey(queueName);
         try {
             String taskData = stringRedisTemplate.execute(ACQUIRE_AND_POP_SCRIPT,
                     List.of(queueKey, concurrentKey, getMaxConcurrentKey(queueName)),
